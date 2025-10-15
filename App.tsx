@@ -22,6 +22,10 @@ import ViewColumnsIcon from './components/icons/ViewColumnsIcon';
 import CalendarDaysIcon from './components/icons/CalendarDaysIcon';
 import DocumentArrowDownIcon from './components/icons/DocumentArrowDownIcon';
 import PencilIcon from './components/icons/PencilIcon';
+import { signOut } from 'firebase/auth';
+import { auth } from './services/firebase';
+import SheetManager from './components/SheetManager';
+import { getUserSettings } from './services/userSettings';
 
 
 // Helper to parse a 'YYYY-MM-DD' string into a local Date object
@@ -115,6 +119,8 @@ const App: React.FC = () => {
     const [filteredData, setFilteredData] = useState<SheetRow[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+    const [sheetUrl, setSheetUrl] = useState<string>('');
+    const [isSheetManagerOpen, setIsSheetManagerOpen] = useState<boolean>(false);
 
     // Filter state
     const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
@@ -194,7 +200,11 @@ const App: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await fetchSheetData();
+            if (!sheetUrl) {
+                setAllData([]);
+                return;
+            }
+            const data = await fetchSheetData(sheetUrl);
             setAllData(data);
         } catch (err) {
             setError('데이터를 불러오는 데 실패했습니다. 페이지를 새로고침하거나 관리자에게 문의하세요.');
@@ -206,6 +216,24 @@ const App: React.FC = () => {
 
     useEffect(() => {
         loadData();
+    }, [sheetUrl]);
+
+    // Load user's default sheet on login
+    useEffect(() => {
+        const unsub = auth.onAuthStateChanged(async (user) => {
+            if (!user) return;
+            try {
+                const s = await getUserSettings(user.uid);
+                if (s?.defaultSheetUrl) {
+                    setSheetUrl(s.defaultSheetUrl);
+                } else {
+                    setSheetUrl('');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+        return () => unsub();
     }, []);
 
     // Scroll to bottom of chat
@@ -391,6 +419,10 @@ const App: React.FC = () => {
             return <div className="text-center text-red-400 p-8 bg-slate-800 rounded-lg">{error}</div>;
         }
 
+        if (!sheetUrl) {
+            return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">기본 시트가 설정되지 않았습니다. 우측 상단의 "시트" 버튼에서 기본 시트를 설정하세요.</div>;
+        }
+
         if (filteredData.length === 0) {
             return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">선택된 조건에 해당하는 데이터가 없습니다.</div>;
         }
@@ -462,6 +494,13 @@ const App: React.FC = () => {
                         >
                             <DocumentTextIcon className="w-5 h-5" />
                         </button>
+                        <button 
+                            onClick={() => setIsSheetManagerOpen(true)}
+                            className="p-2 rounded-md hover:bg-slate-700 transition-colors"
+                            title="시트 관리"
+                        >
+                            시트
+                        </button>
                          <button 
                             onClick={loadData}
                             className="p-2 rounded-md hover:bg-slate-700 transition-colors w-9 h-9 flex items-center justify-center"
@@ -473,6 +512,13 @@ const App: React.FC = () => {
                             ) : (
                                 <RefreshIcon className="w-5 h-5" />
                             )}
+                        </button>
+                        <button
+                            onClick={() => signOut(auth)}
+                            className="p-2 rounded-md hover:bg-slate-700 transition-colors"
+                            title="로그아웃"
+                        >
+                            로그아웃
                         </button>
                     </div>
                 </div>
@@ -738,6 +784,26 @@ const App: React.FC = () => {
                             </button>
                         </div>
                     </footer>
+                </div>
+            )}
+            {/* Sheet Manager Modal */}
+            {isSheetManagerOpen && (
+                <div 
+                    className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 animate-fade-in"
+                    onClick={() => setIsSheetManagerOpen(false)}
+                >
+                    <div 
+                        className="bg-slate-900 w-full max-w-3xl rounded-lg border border-slate-800 shadow-2xl flex flex-col animate-slide-up max-h-[90vh]"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <header className="p-4 flex justify-between items-center border-b border-slate-800">
+                            <h2 className="text-lg font-semibold text-slate-300">시트 관리</h2>
+                            <button onClick={() => setIsSheetManagerOpen(false)} className="p-1 rounded-full hover:bg-slate-700">
+                                <CloseIcon className="w-5 h-5" />
+                            </button>
+                        </header>
+                        <SheetManager onSelectDefault={(u) => { setSheetUrl(u); setIsSheetManagerOpen(false); }} />
+                    </div>
                 </div>
             )}
         </div>

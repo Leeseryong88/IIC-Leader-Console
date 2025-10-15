@@ -1,8 +1,5 @@
 import { SheetRow } from '../types';
 
-// 사용자가 제공한 URL로 Google Sheets CSV 링크를 업데이트했습니다.
-const PUBLISHED_GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRiGkMTvzk4pVRUqbgDynK4YnAfsmckpQFbq7VWdWhQ-SDNXDmLpQ8ePyKgLEyl7nNNHi_-Wbt1AdYp/pub?gid=1432477272&single=true&output=csv';
-
 /**
  * A more robust CSV parser that handles multiline fields by first reconstructing logical rows.
  * This prevents an unclosed quote in one row from corrupting the rest of the file,
@@ -92,10 +89,10 @@ const parseCSV = (csvText: string): SheetRow[] => {
 };
 
 
-export const fetchSheetData = async (): Promise<SheetRow[]> => {
+export const fetchSheetData = async (csvUrl: string): Promise<SheetRow[]> => {
   try {
     // Cache-busting: Add a unique query parameter to prevent network caching issues.
-    const url = new URL(PUBLISHED_GOOGLE_SHEET_CSV_URL);
+    const url = new URL(csvUrl);
     url.searchParams.append('_', new Date().getTime().toString());
 
     const response = await fetch(url.toString());
@@ -116,6 +113,7 @@ export const fetchSheetData = async (): Promise<SheetRow[]> => {
     return data;
   } catch (error) {
     console.error("Error fetching or parsing sheet data:", error);
-    throw error;
+    // Re-throw with user-friendly message
+    throw new Error('시트를 불러오는 데 실패했습니다. URL이 CSV 공개 링크인지 확인하세요.');
   }
 };
