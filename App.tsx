@@ -448,7 +448,7 @@ const App: React.FC = () => {
         }
 
         if (!sheetUrl) {
-            return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">기본 시트가 설정되지 않았습니다. 우측 상단의 "시트" 버튼에서 기본 시트를 설정하세요.</div>;
+            return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">기본시트 설정필요</div>;
         }
 
         if (filteredData.length === 0) {
@@ -645,74 +645,47 @@ const App: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="md:col-span-2 border-t border-slate-800 pt-6">
-                                    <h3 className="text-base font-semibold text-slate-300 mb-4">카드 표시 정보</h3>
-                                    {cardConfig && cardConfig.template === 'custom' ? (
-                                        <>
-                                            <div className="mb-3">
-                                                <label className="inline-flex items-center gap-2 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="w-4 h-4"
-                                                        checked={visibleGroups.length === (cardConfig.fields.groups || []).filter(g=>g.label).length}
-                                                        onChange={(e)=>{
-                                                            if (e.target.checked) {
-                                                                const all = (cardConfig.fields.groups || []).map((g, idx)=> g.label || `그룹 ${idx+1}`).filter(Boolean);
-                                                                setVisibleGroups(all);
-                                                            } else {
-                                                                // 비어있는 배열은 아무 그룹도 표시하지 않음
-                                                                setVisibleGroups([]);
-                                                            }
-                                                        }}
-                                                    />
-                                                    <span className="text-sm text-slate-300">모두 표시</span>
-                                                </label>
-                                            </div>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                                {(cardConfig.fields.groups || []).map((g, idx) => {
-                                                    const name = g.label || `그룹 ${idx+1}`;
-                                                    const checked = visibleGroups.includes(name);
-                                                    return (
-                                                        <label key={idx} className="flex items-center gap-2 cursor-pointer">
-                                                            <input type="checkbox" className="w-4 h-4" checked={checked} onChange={(e)=>{
-                                                                setVisibleGroups(prev => {
-                                                                    if (e.target.checked) return Array.from(new Set([...prev, name]));
-                                                                    return prev.filter(n => n !== name);
-                                                                });
-                                                            }} />
-                                                            <span className="text-sm text-slate-300">{name}</span>
-                                                        </label>
-                                                    );
-                                                })}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                            <div className="flex items-center">
+                                {cardConfig && cardConfig.template === 'custom' && (
+                                    <div className="md:col-span-2 border-t border-slate-800 pt-6">
+                                        <h3 className="text-base font-semibold text-slate-300 mb-4">카드 표시 정보</h3>
+                                        <div className="mb-3">
+                                            <label className="inline-flex items-center gap-2 cursor-pointer">
                                                 <input
-                                                    id="check-all"
                                                     type="checkbox"
-                                                    checked={isAllVisible}
-                                                    onChange={() => handleVisibilityChange('all')}
-                                                    className="w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500"
+                                                    className="w-4 h-4"
+                                                    checked={visibleGroups.length === (cardConfig.fields.groups || []).filter(g=>g.label).length}
+                                                    onChange={(e)=>{
+                                                        if (e.target.checked) {
+                                                            const all = (cardConfig.fields.groups || []).map((g, idx)=> g.label || `그룹 ${idx+1}`).filter(Boolean);
+                                                            setVisibleGroups(all);
+                                                        } else {
+                                                            // 비어있는 배열은 아무 그룹도 표시하지 않음
+                                                            setVisibleGroups([]);
+                                                        }
+                                                    }}
                                                 />
-                                                <label htmlFor="check-all" className="ml-2 text-sm font-bold text-slate-200">모두 표시</label>
-                                            </div>
-                                            {fieldLabels.map(({ key, label }) => (
-                                                <div key={key} className="flex items-center">
-                                                    <input
-                                                        id={`check-${key}`}
-                                                        type="checkbox"
-                                                        checked={visibleFields[key]}
-                                                        onChange={() => handleVisibilityChange(key)}
-                                                        className="w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500"
-                                                    />
-                                                    <label htmlFor={`check-${key}`} className="ml-2 text-sm text-slate-300">{label}</label>
-                                                </div>
-                                            ))}
+                                                <span className="text-sm text-slate-300">모두 표시</span>
+                                            </label>
                                         </div>
-                                    )}
-                                </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                            {(cardConfig.fields.groups || []).map((g, idx) => {
+                                                const name = g.label || `그룹 ${idx+1}`;
+                                                const checked = visibleGroups.includes(name);
+                                                return (
+                                                    <label key={idx} className="flex items-center gap-2 cursor-pointer">
+                                                        <input type="checkbox" className="w-4 h-4" checked={checked} onChange={(e)=>{
+                                                            setVisibleGroups(prev => {
+                                                                if (e.target.checked) return Array.from(new Set([...prev, name]));
+                                                                return prev.filter(n => n !== name);
+                                                            });
+                                                        }} />
+                                                        <span className="text-sm text-slate-300">{name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
