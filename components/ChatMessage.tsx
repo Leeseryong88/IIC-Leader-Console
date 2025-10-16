@@ -8,21 +8,84 @@ interface ChatMessageProps {
   message: Message;
 }
 
-// AI 응답의 마크다운을 렌더링하기 위한 파서 함수
+// AI 응답의 마크다운을 렌더링하기 위한 파서 함수 (표 지원)
 const parseMarkdownToHtml = (markdown: string): string => {
     if (!markdown) return '';
 
-    const lines = markdown.split('\n');
+    const lines = markdown.split(/\r?\n/);
     const htmlParts: string[] = [];
     let listType: 'ul' | 'ol' | null = null;
+    let i = 0;
+    let inFence = false;
+    let fenceLang = '';
+    let fenceBuffer: string[] = [];
 
-    // 굵은 글씨와 같은 인라인 형식 форматирования
     const formatInline = (text: string) => {
-        return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-slate-800 border border-slate-700 rounded">$1</code>');
     };
-    
-    lines.forEach(line => {
+
+    const isTableSeparator = (line: string) => {
+        const t = line.trim();
+        // 허용: |---|---| 또는 ---|--- 또는 :---: 등
+        if (!t) return false;
+        // 양끝 파이프 제거
+        const core = t.replace(/^\|/, '').replace(/\|$/, '');
+        const parts = core.split('|').map(s => s.trim());
+        if (parts.length < 2) return false;
+        return parts.every(p => /^:?-{3,}:?$/.test(p));
+    };
+
+    while (i < lines.length) {
+        const line = lines[i];
         const trimmedLine = line.trim();
+
+        // fenced code blocks ```
+        if (trimmedLine.startsWith('```')) {
+            if (!inFence) {
+                inFence = true;
+                fenceLang = trimmedLine.slice(3).trim();
+                fenceBuffer = [];
+            } else {
+                // close fence
+                const codeHtml = fenceBuffer
+                    .map(l => l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'))
+                    .join('\n');
+                htmlParts.push(`<pre class="bg-slate-800 border border-slate-700 rounded p-3 overflow-x-auto"><code class="language-${fenceLang}">${codeHtml}</code></pre>`);
+                inFence = false;
+                fenceLang = '';
+                fenceBuffer = [];
+            }
+            i++;
+            continue;
+        }
+        if (inFence) {
+            fenceBuffer.push(line);
+            i++;
+            continue;
+        }
+
+        // 표 감지: 헤더 줄 | 구분자 줄 | 데이터 ...
+        const next = i + 1 < lines.length ? lines[i + 1] : '';
+        if ((trimmedLine.includes('|')) && isTableSeparator(next)) {
+            const headerCore = trimmedLine.replace(/^\|/, '').replace(/\|$/, '');
+            const headerCells = headerCore.split('|').map(c => c.trim());
+            i += 2; // separator 건너뜀
+            const bodyRows: string[][] = [];
+            while (i < lines.length && lines[i].includes('|')) {
+                const rowCore = lines[i].trim().replace(/^\|/, '').replace(/\|$/, '');
+                const cells = rowCore.split('|').map(c => c.trim());
+                bodyRows.push(cells);
+                i++;
+            }
+            const thead = `<thead><tr>${headerCells.map(h=>`<th class="px-3 py-2 border border-slate-700 bg-slate-800 text-slate-300 text-sm">${formatInline(h)}</th>`).join('')}</tr></thead>`;
+            const tbody = `<tbody>${bodyRows.map(r=>`<tr>${r.map(c=>`<td class="px-3 py-2 border border-slate-700 text-slate-200 text-sm align-top">${formatInline(c)}</td>`).join('')}</tr>`).join('')}</tbody>`;
+            htmlParts.push(`<div class="overflow-x-auto"><table class="min-w-full border border-slate-700 rounded-md">${thead}${tbody}</table></div>`);
+            continue; // while 루프의 증가 건너뜀 (i는 이미 이동됨)
+        }
+
+        // 목록 처리
         const unorderedMatch = trimmedLine.match(/^([*-])\s+(.*)/);
         const orderedMatch = trimmedLine.match(/^(\d+\.|\d+\)|[a-zA-Z][.)])\s+(.*)/);
 
@@ -33,28 +96,31 @@ const parseMarkdownToHtml = (markdown: string): string => {
                 listType = 'ul';
             }
             htmlParts.push(`<li>${formatInline(unorderedMatch[2])}</li>`);
-        } else if (orderedMatch) {
+            i++;
+            continue;
+        }
+        if (orderedMatch) {
             if (listType !== 'ol') {
                 if (listType === 'ul') htmlParts.push('</ul>');
                 htmlParts.push('<ol>');
                 listType = 'ol';
             }
             htmlParts.push(`<li>${formatInline(orderedMatch[2])}</li>`);
-        } else {
-            if (listType) {
-                htmlParts.push(`</${listType}>`);
-                listType = null;
-            }
-            if (trimmedLine.length > 0) {
-                 htmlParts.push(`<p>${formatInline(line)}</p>`);
-            }
+            i++;
+            continue;
         }
-    });
 
-    if (listType) {
-        htmlParts.push(`</${listType}>`);
+        if (listType) {
+            htmlParts.push(`</${listType}>`);
+            listType = null;
+        }
+        if (trimmedLine.length > 0) {
+            htmlParts.push(`<p>${formatInline(line)}</p>`);
+        }
+        i++;
     }
 
+    if (listType) htmlParts.push(`</${listType}>`);
     return htmlParts.join('');
 };
 

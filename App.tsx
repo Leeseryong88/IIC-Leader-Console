@@ -139,6 +139,7 @@ const App: React.FC = () => {
     
     // Chat state
     const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+    const [isChatMaximized, setIsChatMaximized] = useState<boolean>(false);
     const [chatInput, setChatInput] = useState<string>('');
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isAiResponding, setIsAiResponding] = useState<boolean>(false);
@@ -804,7 +805,7 @@ const App: React.FC = () => {
 
             <div className="fixed bottom-6 right-6 z-20">
                 <button
-                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    onClick={() => { setIsChatOpen(!isChatOpen); if (isChatOpen) setIsChatMaximized(false); }}
                     className="w-16 h-16 bg-sky-600 rounded-full text-white flex items-center justify-center shadow-lg hover:bg-sky-500 transition-transform hover:scale-110"
                     aria-label="Open chat"
                 >
@@ -813,9 +814,23 @@ const App: React.FC = () => {
             </div>
             
             {isChatOpen && (
-                <div className="fixed bottom-24 inset-x-4 h-[60vh] sm:inset-x-auto sm:right-6 sm:w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl flex flex-col animate-fade-in-up z-20">
-                    <header className="p-4 border-b border-slate-700">
-                        <h3 className="font-semibold text-center text-lg">AI 비서</h3>
+                <div className={isChatMaximized ? "fixed inset-0 bg-slate-900/95 border border-slate-700 rounded-none shadow-2xl flex flex-col animate-fade-in z-40" : "fixed bottom-24 inset-x-4 h-[60vh] sm:inset-x-auto sm:right-6 sm:w-full max-w-md bg-slate-800/80 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl flex flex-col animate-fade-in-up z-20"}>
+                    <header className="p-4 border-b border-slate-700 flex items-center justify-between">
+                        <h3 className="font-semibold text-lg">AI 비서</h3>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsChatMaximized(v => !v)}
+                                className="px-3 py-1 text-sm rounded-md bg-slate-700 hover:bg-slate-600 text-white"
+                                title={isChatMaximized ? '축소' : '최대화'}
+                            >{isChatMaximized ? '축소' : '최대화'}</button>
+                            <button
+                                onClick={() => { setIsChatOpen(false); setIsChatMaximized(false); }}
+                                className="p-2 rounded-md hover:bg-slate-700"
+                                title="닫기"
+                            >
+                                <CloseIcon className="w-5 h-5" />
+                            </button>
+                        </div>
                     </header>
                     <div className="flex-1 p-4 overflow-y-auto">
                         {messages.map((msg, index) => (
