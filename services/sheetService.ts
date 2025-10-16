@@ -117,3 +117,27 @@ export const fetchSheetData = async (csvUrl: string): Promise<SheetRow[]> => {
     throw new Error('시트를 불러오는 데 실패했습니다. URL이 CSV 공개 링크인지 확인하세요.');
   }
 };
+
+// 헤더만 빠르게 가져오는 유틸 (디자이너에서 사용)
+export const fetchSheetHeaders = async (csvUrl: string): Promise<string[]> => {
+  // 내부 parse 로직을 재사용하지 않고 첫 행만 안전하게 파싱
+  const url = new URL(csvUrl);
+  url.searchParams.append('_', new Date().getTime().toString());
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error('헤더를 불러오지 못했습니다.');
+  const text = (await res.text()).trim().replace(/^\uFEFF/, '');
+  const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
+  const headers: string[] = [];
+  let cur = '';
+  let inQ = false;
+  for (let i = 0; i < firstLine.length; i++) {
+    const ch = firstLine[i];
+    if (ch === '"') {
+      if (inQ && firstLine[i + 1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if (ch === ',' && !inQ) { headers.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
+    else { cur += ch; }
+  }
+  headers.push(cur.trim().replace(/^"|"$/g, ''));
+  return headers.filter(Boolean);
+};

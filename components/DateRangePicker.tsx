@@ -154,7 +154,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, o
                 <CalendarIcon className="w-5 h-5 text-slate-400" />
             </button>
             {isOpen && (
-                <div className="absolute top-full mt-2 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-4 z-20 animate-fade-in">
+                <div className="absolute top-full mt-2 w-72 sm:w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl p-4 z-50 animate-fade-in">
                     <div className="flex justify-between items-center mb-4">
                         <button onClick={() => handleMonthChange(-1)} className="p-1 rounded-full hover:bg-slate-700"><ChevronLeftIcon className="w-5 h-5" /></button>
                         <div className="font-semibold text-sm">

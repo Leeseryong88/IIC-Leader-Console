@@ -5,6 +5,7 @@ import { fetchSheetData } from './services/sheetService';
 import { startAIChat, getAIReportSummary } from './services/geminiService';
 
 import DataCard from './components/DataCard';
+import CustomCard from './components/CustomCard';
 import CardModal from './components/CardModal';
 import ChatMessageComponent from './components/ChatMessage';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -25,7 +26,7 @@ import PencilIcon from './components/icons/PencilIcon';
 import { signOut } from 'firebase/auth';
 import { auth } from './services/firebase';
 import SheetManager from './components/SheetManager';
-import { getUserSettings } from './services/userSettings';
+import { getUserSettings, CardConfig } from './services/userSettings';
 
 
 // Helper to parse a 'YYYY-MM-DD' string into a local Date object
@@ -121,6 +122,8 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [sheetUrl, setSheetUrl] = useState<string>('');
     const [isSheetManagerOpen, setIsSheetManagerOpen] = useState<boolean>(false);
+    const [cardConfig, setCardConfig] = useState<CardConfig | null>(null);
+    const [calendarConfig, setCalendarConfig] = useState<CardConfig | null>(null);
 
     // Filter state
     const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
@@ -129,6 +132,7 @@ const App: React.FC = () => {
     const authorFilterRef = useRef<HTMLDivElement>(null);
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [visibleFields, setVisibleFields] = useState<VisibleFields>(initialVisibleFields);
+    const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
     
     // View state
     const [viewMode, setViewMode] = useState<'card' | 'calendar'>('card');
@@ -151,10 +155,18 @@ const App: React.FC = () => {
     // Card detail modal state
     const [selectedCard, setSelectedCard] = useState<SheetRow | null>(null);
 
+    // 필터 매핑: 카드 디자이너에서 지정한 작성자/시작일 컬럼명을 사용
+    const mappedAuthorField = useMemo(() => cardConfig?.fields.filterMapping?.authorField || '작성자', [cardConfig]);
+    const mappedStartDateField = useMemo(() => cardConfig?.fields.filterMapping?.startDateField || '시작일', [cardConfig]);
+
     const authors = useMemo(() => {
-        const authorSet = new Set(allData.map(row => row['작성자']).filter(Boolean));
+        const authorSet = new Set(
+            allData
+                .map(row => (row[mappedAuthorField] as unknown as string) || '')
+                .filter(Boolean)
+        );
         return Array.from(authorSet).sort();
-    }, [allData]);
+    }, [allData, mappedAuthorField]);
 
     const filteredAuthors = useMemo(() => {
         if (!authorSearch) {
@@ -226,8 +238,22 @@ const App: React.FC = () => {
                 const s = await getUserSettings(user.uid);
                 if (s?.defaultSheetUrl) {
                     setSheetUrl(s.defaultSheetUrl);
+                    const cardKey = `${s.defaultSheetUrl}:card`;
+                    const calKey = `${s.defaultSheetUrl}:calendar`;
+                    if (s.cardConfigs && s.cardConfigs[cardKey]) {
+                        const cfg = s.cardConfigs[cardKey];
+                        setCardConfig(cfg);
+                        const groupNames = (cfg.fields.groups || []).map(g => g.label || '').filter(Boolean);
+                        setVisibleGroups(groupNames);
+                    } else {
+                        setCardConfig(null);
+                        setVisibleGroups([]);
+                    }
+                    setCalendarConfig(s.cardConfigs && s.cardConfigs[calKey] ? s.cardConfigs[calKey] : null);
                 } else {
                     setSheetUrl('');
+                    setCardConfig(null);
+                    setVisibleGroups([]);
                 }
             } catch (e) {
                 console.error(e);
@@ -245,18 +271,20 @@ const App: React.FC = () => {
     useEffect(() => {
         let data = allData;
 
-        // Filter by author
+        // Filter by author - dynamic mapping
+        const authorField = cardConfig?.fields.filterMapping?.authorField || '작성자';
         if (authorSearch) {
-            data = data.filter(row => row['작성자']?.toLowerCase().includes(authorSearch.toLowerCase()));
+            data = data.filter(row => row[authorField]?.toLowerCase().includes(authorSearch.toLowerCase()));
         }
 
-        // Filter by date range
+        // Filter by date range - dynamic start date field
+        const startDateField = cardConfig?.fields.filterMapping?.startDateField || '시작일';
         const start = parseDate(dateRange.startDate);
         const end = parseDate(dateRange.endDate);
 
         if (start || end) {
             data = data.filter(row => {
-                const rowStart = parseDate(row['시작일']);
+                const rowStart = parseDate(row[startDateField]);
 
                 if (!rowStart) {
                     return false; // Rows without a start date cannot be included.
@@ -428,9 +456,34 @@ const App: React.FC = () => {
         }
 
         if (viewMode === 'calendar') {
+            // 우선순위: 독립 저장된 캘린더 설정 → 카드 설정 내 매핑(호환)
+            const mapping = (calendarConfig?.fields.calendarMapping) || (cardConfig?.fields.calendarMapping);
+            const hasUserMapping = !!(mapping && mapping.startDateField && mapping.contentField);
+
             const calendarEvents = filteredData
-                .filter(row => row['출장(시작일)'] && row['출장내용'])
+                .filter(row => {
+                    if (hasUserMapping) {
+                        return row[mapping!.startDateField] && row[mapping!.contentField];
+                    }
+                    // 기존 기본 규칙(출장) 호환
+                    return row['출장(시작일)'] && row['출장내용'];
+                })
                 .map((row, index) => {
+                    if (hasUserMapping) {
+                        const startDate = row[mapping!.startDateField];
+                        const endDate = mapping!.endDateField ? (row[mapping!.endDateField] || startDate) : startDate;
+                        const author = mapping!.authorField ? row[mapping!.authorField] : (row['작성자'] || '');
+                        const contentRaw = row[mapping!.contentField] || '';
+                        const label = mapping!.typeLabel ? `[${mapping!.typeLabel}] ` : '';
+                        return {
+                            id: `evt-${index}`,
+                            startDate,
+                            endDate,
+                            content: `${label}${contentRaw}`,
+                            author,
+                            fullData: row,
+                        };
+                    }
                     return {
                         id: `trip-${index}`,
                         startDate: row['출장(시작일)'],
@@ -440,9 +493,9 @@ const App: React.FC = () => {
                         fullData: row,
                     };
                 });
-        
+
             if (calendarEvents.length === 0) {
-                return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">달력에 표시할 출장 정보가 없습니다.</div>;
+                return <div className="text-center text-slate-400 p-8 bg-slate-800 rounded-lg">달력에 표시할 데이터가 없습니다. 달력 매핑을 설정하거나 필터를 조정하세요.</div>;
             }
             return <CalendarView events={calendarEvents} onEventClick={handleCardClick} />;
         }
@@ -450,7 +503,11 @@ const App: React.FC = () => {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {filteredData.map((row, index) => (
-                    <DataCard key={index} row={row} visibleFields={visibleFields} onClick={() => handleCardClick(row)} />
+                    cardConfig && cardConfig.template === 'custom' ? (
+                        <CustomCard key={index} row={row} config={cardConfig} visibleGroups={visibleGroups} onClick={() => handleCardClick(row)} />
+                    ) : (
+                        <DataCard key={index} row={row} visibleFields={visibleFields} onClick={() => handleCardClick(row)} />
+                    )
                 ))}
             </div>
         );
@@ -547,7 +604,7 @@ const App: React.FC = () => {
                         <div className="p-6 overflow-y-auto">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">기간 선택(시작일 기준)</label>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">필터1 ({mappedStartDateField})</label>
                                     <DateRangePicker
                                         startDate={dateRange.startDate}
                                         endDate={dateRange.endDate}
@@ -555,7 +612,7 @@ const App: React.FC = () => {
                                     />
                                 </div>
                                 <div ref={authorFilterRef} className="relative">
-                                    <label htmlFor="author-filter-input" className="block text-sm font-medium text-slate-400 mb-2">작성자</label>
+                                    <label htmlFor="author-filter-input" className="block text-sm font-medium text-slate-400 mb-2">필터2 ({mappedAuthorField})</label>
                                     <input
                                         id="author-filter-input"
                                         type="text"
@@ -596,30 +653,71 @@ const App: React.FC = () => {
                                 </div>
                                 <div className="md:col-span-2 border-t border-slate-800 pt-6">
                                     <h3 className="text-base font-semibold text-slate-300 mb-4">카드 표시 정보</h3>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                        <div className="flex items-center">
-                                            <input
-                                                id="check-all"
-                                                type="checkbox"
-                                                checked={isAllVisible}
-                                                onChange={() => handleVisibilityChange('all')}
-                                                className="w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500"
-                                            />
-                                            <label htmlFor="check-all" className="ml-2 text-sm font-bold text-slate-200">모두 표시</label>
-                                        </div>
-                                        {fieldLabels.map(({ key, label }) => (
-                                            <div key={key} className="flex items-center">
+                                    {cardConfig && cardConfig.template === 'custom' ? (
+                                        <>
+                                            <div className="mb-3">
+                                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4"
+                                                        checked={visibleGroups.length === (cardConfig.fields.groups || []).filter(g=>g.label).length}
+                                                        onChange={(e)=>{
+                                                            if (e.target.checked) {
+                                                                const all = (cardConfig.fields.groups || []).map((g, idx)=> g.label || `그룹 ${idx+1}`).filter(Boolean);
+                                                                setVisibleGroups(all);
+                                                            } else {
+                                                                // 비어있는 배열은 아무 그룹도 표시하지 않음
+                                                                setVisibleGroups([]);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-sm text-slate-300">모두 표시</span>
+                                                </label>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                {(cardConfig.fields.groups || []).map((g, idx) => {
+                                                    const name = g.label || `그룹 ${idx+1}`;
+                                                    const checked = visibleGroups.includes(name);
+                                                    return (
+                                                        <label key={idx} className="flex items-center gap-2 cursor-pointer">
+                                                            <input type="checkbox" className="w-4 h-4" checked={checked} onChange={(e)=>{
+                                                                setVisibleGroups(prev => {
+                                                                    if (e.target.checked) return Array.from(new Set([...prev, name]));
+                                                                    return prev.filter(n => n !== name);
+                                                                });
+                                                            }} />
+                                                            <span className="text-sm text-slate-300">{name}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                            <div className="flex items-center">
                                                 <input
-                                                    id={`check-${key}`}
+                                                    id="check-all"
                                                     type="checkbox"
-                                                    checked={visibleFields[key]}
-                                                    onChange={() => handleVisibilityChange(key)}
+                                                    checked={isAllVisible}
+                                                    onChange={() => handleVisibilityChange('all')}
                                                     className="w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500"
                                                 />
-                                                <label htmlFor={`check-${key}`} className="ml-2 text-sm text-slate-300">{label}</label>
+                                                <label htmlFor="check-all" className="ml-2 text-sm font-bold text-slate-200">모두 표시</label>
                                             </div>
-                                        ))}
-                                    </div>
+                                            {fieldLabels.map(({ key, label }) => (
+                                                <div key={key} className="flex items-center">
+                                                    <input
+                                                        id={`check-${key}`}
+                                                        type="checkbox"
+                                                        checked={visibleFields[key]}
+                                                        onChange={() => handleVisibilityChange(key)}
+                                                        className="w-4 h-4 text-sky-600 bg-slate-700 border-slate-600 rounded focus:ring-sky-500"
+                                                    />
+                                                    <label htmlFor={`check-${key}`} className="ml-2 text-sm text-slate-300">{label}</label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -731,7 +829,7 @@ const App: React.FC = () => {
 
 
             {/* Card Detail Modal */}
-            {selectedCard && <CardModal cardData={selectedCard} onClose={handleCloseModal} />}
+            {selectedCard && <CardModal cardData={selectedCard} onClose={handleCloseModal} config={cardConfig} />}
 
             <div className="fixed bottom-6 right-6 z-20">
                 <button
