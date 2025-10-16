@@ -44,6 +44,14 @@ const CardModal: React.FC<CardModalProps> = ({ cardData, onClose, config }) => {
     const titleStyle = fields.titleStyle || {};
     const groups = (fields.groups || []) as any[];
 
+    const isUrl = (v: string): boolean => {
+      if (!v) return false;
+      try {
+        const u = new URL(v.trim());
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch { return false; }
+    };
+
     return (
       <div className="p-6 space-y-5 overflow-y-auto">
         {titleKey && (
@@ -59,8 +67,18 @@ const CardModal: React.FC<CardModalProps> = ({ cardData, onClose, config }) => {
                 const sizeMap: any = { 1:'text-xs', 2:'text-sm', 3:'text-base', 4:'text-lg', 5:'text-xl' };
                 const classNames = `${sizeMap[it.size||3]} ${it.color ? '' : 'text-slate-300'}`;
                 const styleColor: React.CSSProperties | undefined = it.color ? { color: it.color } : undefined;
-                if (it.type === 'text') return <span key={j} className={classNames} style={styleColor}>{it.text}</span>;
-                const value = it.field ? cardData[it.field] : '';
+                if (it.type === 'text') {
+                  const content = String(it.text||'');
+                  if (isUrl(content)) {
+                    return <a key={j} className={`${classNames} underline text-sky-400`} style={styleColor} href={content} target="_blank" rel="noopener noreferrer">{content}</a>;
+                  }
+                  return <span key={j} className={classNames} style={styleColor}>{content}</span>;
+                }
+                const value = String(it.field ? (cardData as any)[it.field] : '') || '';
+                if (isUrl(value)) {
+                  const label = `${it.prefix||''}${value}${it.suffix||''}`;
+                  return <a key={j} className={`${classNames} underline text-sky-400`} style={styleColor} href={value} target="_blank" rel="noopener noreferrer">{label}</a>;
+                }
                 return <span key={j} className={classNames} style={styleColor}>{(it.prefix||'')}{value}{(it.suffix||'')}</span>;
               })}
             </div>
@@ -90,7 +108,7 @@ const CardModal: React.FC<CardModalProps> = ({ cardData, onClose, config }) => {
         </header>
         {config && config.template === 'custom' ? renderCustom() : (
           <div className="p-6 space-y-5 overflow-y-auto">
-            <p className="text-slate-400 text-sm">커스텀 설정이 없어서 기본 정보를 표시합니다.</p>
+            <p className="text-slate-400 text-sm">커스텀 설정해야합니다.</p>
             <ModalSection title="기간">
                 {cardData['시작일'] && cardData['종료일'] ? `${cardData['시작일']} ~ ${cardData['종료일']}` : null}
             </ModalSection>

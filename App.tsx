@@ -551,13 +551,7 @@ const App: React.FC = () => {
                         >
                             <DocumentTextIcon className="w-5 h-5" />
                         </button>
-                        <button 
-                            onClick={() => setIsSheetManagerOpen(true)}
-                            className="p-2 rounded-md hover:bg-slate-700 transition-colors"
-                            title="시트 관리"
-                        >
-                            시트
-                        </button>
+                        {/* 설정 진입 링크 제거 (비공개 경로) */}
                          <button 
                             onClick={loadData}
                             className="p-2 rounded-md hover:bg-slate-700 transition-colors w-9 h-9 flex items-center justify-center"
@@ -884,26 +878,7 @@ const App: React.FC = () => {
                     </footer>
                 </div>
             )}
-            {/* Sheet Manager Modal */}
-            {isSheetManagerOpen && (
-                <div 
-                    className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 animate-fade-in"
-                    onClick={() => setIsSheetManagerOpen(false)}
-                >
-                    <div 
-                        className="bg-slate-900 w-full max-w-3xl rounded-lg border border-slate-800 shadow-2xl flex flex-col animate-slide-up max-h-[90vh]"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <header className="p-4 flex justify-between items-center border-b border-slate-800">
-                            <h2 className="text-lg font-semibold text-slate-300">시트 관리</h2>
-                            <button onClick={() => setIsSheetManagerOpen(false)} className="p-1 rounded-full hover:bg-slate-700">
-                                <CloseIcon className="w-5 h-5" />
-                            </button>
-                        </header>
-                        <SheetManager onSelectDefault={(u) => { setSheetUrl(u); setIsSheetManagerOpen(false); }} />
-                    </div>
-                </div>
-            )}
+            {/* 시트 기능은 설정 페이지로 이동했으므로 모달 제거 */}
         </div>
     );
 };
