@@ -13,6 +13,8 @@ export type CardTemplateType = 'default' | 'custom' | 'calendar';
 
 // 개별 필드를 어떤 영역에 배치할지 정의
 export interface CardFieldMapping {
+  // 페이지 헤더 제목
+  headerTitle?: string;
   // 단일 필드: 제목만 유지
   title?: string;
   titleStyle?: { color?: string; size?: 1 | 2 | 3 | 4 | 5 };

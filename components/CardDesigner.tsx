@@ -164,11 +164,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ sheetUrl, initialConfig, on
     const user = auth.currentUser;
     if (!user) return;
     const fields: CardFieldMapping = mode === 'card' ? {
+      headerTitle: (initialConfig as any)?.fields?.headerTitle,
       title: titleZone[0]?.id,
       titleStyle: { color: titleColor || undefined, size: titleSize },
       groups: groups.map(g => ({ label: g.label, borderColor: (g as any).borderColor, items: g.items })),
       filterMapping: { startDateField: startDateField || undefined, authorField: authorField || undefined },
     } : {
+      headerTitle: (initialConfig as any)?.fields?.headerTitle,
       filterMapping: { startDateField: startDateField || undefined, authorField: authorField || undefined },
       calendarMapping: calStart && calContent ? {
         startDateField: calStart,
@@ -225,6 +227,15 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ sheetUrl, initialConfig, on
         </div>
 
         <div className="space-y-2">
+          <div>
+            <label className="block text-[11px] text-slate-400 mb-1">페이지 헤더 제목</label>
+            <input
+              defaultValue={initialConfig?.fields.headerTitle || ''}
+              onChange={(e)=>{ (initialConfig as any) = { ...(initialConfig||{}), fields: { ...(initialConfig?.fields||{}), headerTitle: e.target.value } } as any; }}
+              placeholder="예: 팀 대시보드"
+              className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded p-1.5"
+            />
+          </div>
           {mode === 'card' && (
             <>
               <h3 className="text-sm font-semibold text-slate-300">제목</h3>

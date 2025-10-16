@@ -418,7 +418,11 @@ const App: React.FC = () => {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "주간보고_요약.doc");
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        link.setAttribute("download", `AI요약(${yyyy}-${mm}-${dd}).doc`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -519,7 +523,7 @@ const App: React.FC = () => {
         <div className="bg-slate-950 text-slate-200 min-h-screen font-sans">
             <header className="bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10 border-b border-slate-800">
                 <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-                    <h1 className="text-xl font-bold text-sky-400">IIC Weekly Dashboard</h1>
+                    <h1 className="text-xl font-bold text-sky-400">{(viewMode==='calendar' ? (calendarConfig?.fields.headerTitle || cardConfig?.fields.headerTitle) : (cardConfig?.fields.headerTitle)) || 'IIC Weekly Dashboard'}</h1>
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg">
                             <button
@@ -703,7 +707,7 @@ const App: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <header className="p-4 flex justify-between items-center border-b border-slate-800">
-                            <h2 className="text-lg font-semibold text-slate-300">AI 주간보고 요약</h2>
+                            <h2 className="text-lg font-semibold text-slate-300">AI 요약</h2>
                             <button onClick={handleCloseSummaryModal} className="p-1 rounded-full hover:bg-slate-700">
                                 <CloseIcon className="w-5 h-5" />
                             </button>
