@@ -603,7 +603,17 @@ const App: React.FC = () => {
                         <div className="p-6 overflow-y-auto">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">필터1 ({mappedStartDateField})</label>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className="block text-sm font-medium text-slate-400">필터1 ({mappedStartDateField})</label>
+                                        {(dateRange.startDate || dateRange.endDate) && (
+                                            <button
+                                                onClick={() => setDateRange({ startDate: '', endDate: '' })}
+                                                className="text-xs text-red-400 hover:text-red-300"
+                                            >
+                                                필터 해제
+                                            </button>
+                                        )}
+                                    </div>
                                     <DateRangePicker
                                         startDate={dateRange.startDate}
                                         endDate={dateRange.endDate}
