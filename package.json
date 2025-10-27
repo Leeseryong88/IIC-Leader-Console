@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.23.0",
+    "firebase-admin": "^12.6.0",
+    "googleapis": "^143.0.0",
     "firebase": "^12.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
