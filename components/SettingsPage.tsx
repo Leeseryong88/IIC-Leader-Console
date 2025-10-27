@@ -1,5 +1,6 @@
 import React from 'react';
 import SheetManager from './SheetManager';
+import ChangePassword from './ChangePassword';
 
 const SettingsPage: React.FC = () => {
   return (
@@ -10,8 +11,9 @@ const SettingsPage: React.FC = () => {
           <a href="/" className="px-3 py-1.5 text-sm rounded-md bg-slate-800 border border-slate-700 hover:bg-slate-700">메인으로</a>
         </div>
       </header>
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 space-y-6">
         <SheetManager onSelectDefault={() => {}} />
+        <ChangePassword />
       </main>
     </div>
   );
