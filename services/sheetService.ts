@@ -109,10 +109,15 @@ export const fetchSheetData = async (sheetUrl: string): Promise<SheetRow[]> => {
 export const fetchSheetHeaders = async (sheetUrl: string): Promise<string[]> => {
   const idToken = await auth.currentUser?.getIdToken();
   if (!idToken) throw new Error('인증 후 이용해주세요.');
-  const res = await fetch(`/api/sheet?url=${encodeURIComponent(sheetUrl)}&range=Sheet1!1:1`, {
+  // range를 강제 지정하지 않으면 서버가 gid로 시트 제목을 찾아 적절한 범위를 계산합니다.
+  const res = await fetch(`/api/sheet?url=${encodeURIComponent(sheetUrl)}`, {
     headers: { Authorization: `Bearer ${idToken}` },
   });
-  if (!res.ok) throw new Error('헤더를 불러오지 못했습니다.');
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`헤더를 불러오지 못했습니다: ${res.status} ${msg}`);
+  }
   const rows = (await res.json()) as SheetRow[];
+  // 서버는 첫 행을 헤더로 간주하여 이후 행을 객체로 반환하므로, 첫 번째 데이터 행의 키가 헤더가 됩니다.
   return Object.keys(rows[0] || {});
 };
