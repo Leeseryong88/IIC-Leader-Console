@@ -1,4 +1,5 @@
 import { SheetRow } from '../types';
+import { auth } from './firebase';
 
 /**
  * A more robust CSV parser that handles multiline fields by first reconstructing logical rows.
@@ -89,55 +90,29 @@ const parseCSV = (csvText: string): SheetRow[] => {
 };
 
 
-export const fetchSheetData = async (csvUrl: string): Promise<SheetRow[]> => {
-  try {
-    // Cache-busting: Add a unique query parameter to prevent network caching issues.
-    const url = new URL(csvUrl);
-    url.searchParams.append('_', new Date().getTime().toString());
+export const fetchSheetData = async (sheetUrl: string): Promise<SheetRow[]> => {
+  if (!sheetUrl) return [];
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('인증 후 이용해주세요.');
 
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`Failed to fetch published sheet data: ${response.status} ${response.statusText}`);
-    }
-    const csvText = await response.text();
-
-    if (csvText.trim().startsWith('<!DOCTYPE html') || csvText.trim().startsWith('<html')) {
-        throw new Error('Failed to parse CSV data. The fetched content appears to be an HTML page, not a CSV file. Please ensure the Google Sheet is correctly "Published to the web" as a CSV.');
-    }
-
-    const data = parseCSV(csvText);
-
-    if (data.length === 0 && csvText.trim().length > 0) {
-        throw new Error('Failed to parse CSV data. The file was fetched but could not be parsed into rows. Check CSV format and column consistency.');
-    }
-    return data;
-  } catch (error) {
-    console.error("Error fetching or parsing sheet data:", error);
-    // Re-throw with user-friendly message
-    throw new Error('시트를 불러오는 데 실패했습니다. URL이 CSV 공개 링크인지 확인하세요.');
+  const res = await fetch(`/api/sheet?url=${encodeURIComponent(sheetUrl)}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`시트 로드 실패: ${res.status} ${msg}`);
   }
+  return (await res.json()) as SheetRow[];
 };
 
 // 헤더만 빠르게 가져오는 유틸 (디자이너에서 사용)
-export const fetchSheetHeaders = async (csvUrl: string): Promise<string[]> => {
-  // 내부 parse 로직을 재사용하지 않고 첫 행만 안전하게 파싱
-  const url = new URL(csvUrl);
-  url.searchParams.append('_', new Date().getTime().toString());
-  const res = await fetch(url.toString());
+export const fetchSheetHeaders = async (sheetUrl: string): Promise<string[]> => {
+  const idToken = await auth.currentUser?.getIdToken();
+  if (!idToken) throw new Error('인증 후 이용해주세요.');
+  const res = await fetch(`/api/sheet?url=${encodeURIComponent(sheetUrl)}&range=Sheet1!1:1`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
   if (!res.ok) throw new Error('헤더를 불러오지 못했습니다.');
-  const text = (await res.text()).trim().replace(/^\uFEFF/, '');
-  const firstLine = text.split(/\r\n|\n|\r/)[0] || '';
-  const headers: string[] = [];
-  let cur = '';
-  let inQ = false;
-  for (let i = 0; i < firstLine.length; i++) {
-    const ch = firstLine[i];
-    if (ch === '"') {
-      if (inQ && firstLine[i + 1] === '"') { cur += '"'; i++; }
-      else { inQ = !inQ; }
-    } else if (ch === ',' && !inQ) { headers.push(cur.trim().replace(/^"|"$/g, '')); cur = ''; }
-    else { cur += ch; }
-  }
-  headers.push(cur.trim().replace(/^"|"$/g, ''));
-  return headers.filter(Boolean);
+  const rows = (await res.json()) as SheetRow[];
+  return Object.keys(rows[0] || {});
 };
